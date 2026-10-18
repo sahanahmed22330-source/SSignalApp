@@ -1,0 +1,58 @@
+name: Build S Signal APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # zip আপলোড করলে নিজে থেকেই খুলে নেবে (প্রজেক্টের ফাইলগুলো রুটে চলে আসবে)
+      - name: Unpack uploaded zip (if any)
+        run: |
+          shopt -s nullglob
+          for z in *.zip; do
+            echo "Unpacking $z"
+            unzip -o "$z"
+            # zip এর ভেতরে একটা ফোল্ডারে থাকলে সেটাকে রুটে তুলে আনা
+            top=$(unzip -Z1 "$z" | head -1 | cut -d/ -f1)
+            if [ -d "$top" ] && [ -f "$top/settings.gradle.kts" ] && [ ! -f settings.gradle.kts ]; then
+              cp -a "$top"/. .
+            fi
+          done
+          ls -la
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
+
+      - name: Build APK
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk SSignal.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SSignal-apk
+          path: SSignal.apk
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: S Signal build ${{ github.run_number }}
+          files: SSignal.apk
+          make_latest: true
