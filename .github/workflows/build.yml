@@ -14,20 +14,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # zip আপলোড করলে নিজে থেকেই খুলে নেবে (প্রজেক্টের ফাইলগুলো রুটে চলে আসবে)
-      - name: Unpack uploaded zip (if any)
+      # শুধু সবচেয়ে নতুন ভার্সনের zip খুলবে (v10 > v9 > v2 ...), পুরোনোগুলো বাদ
+      - name: Unpack newest zip
         run: |
-          shopt -s nullglob
-          for z in *.zip; do
-            echo "Unpacking $z"
+          z=$(ls *.zip 2>/dev/null | sort -V | tail -1)
+          if [ -n "$z" ]; then
+            echo "Using $z"
             unzip -o "$z"
-            # zip এর ভেতরে একটা ফোল্ডারে থাকলে সেটাকে রুটে তুলে আনা
             top=$(unzip -Z1 "$z" | head -1 | cut -d/ -f1)
             if [ -d "$top" ] && [ -f "$top/settings.gradle.kts" ] && [ ! -f settings.gradle.kts ]; then
               cp -a "$top"/. .
             fi
-          done
+          fi
           ls -la
+          grep -n "versionName" app/build.gradle.kts || true
 
       - uses: actions/setup-java@v4
         with:
